@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+gradio
+pypdf3
+chromadb
+openai
+numpy
+pandas
+pytest
+jupyterlab
+langchain
+pymupdf4llm
+llama-index
+tiktoken
