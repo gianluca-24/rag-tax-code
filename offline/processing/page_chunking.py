@@ -1,73 +1,74 @@
 import json
-import pathlib
-from langchain_text_splitters import MarkdownTextSplitter
 import re
+from pathlib import Path
+from langchain_text_splitters import MarkdownTextSplitter
+import sys
 
-# last pages per fascicolo
-last_pages = {
-    1: 12, 2:3, 3:3
-}
+# Add parent folder to sys.path to import config
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from config import JSON_PATH, CHUNK_SIZE, CHUNK_OVERLAP
 
-def extract_page_positions(text):
-    """
-    Returns the first page number found in the text, or None if no 'PAGE XX' is found.
-    """
+# Track last page numbers per fascicolo
+LAST_PAGES = {1: 12, 2: 3, 3: 3}
+
+def extract_page_positions(text: str):
+    """Return the first page number found in text, or None if not found."""
     pattern = r'PAGE\s+(\d+)'
     match = re.search(pattern, text)
     return int(match.group(1)) if match else None
 
+def chunk_sections_into_pages(input_json: Path = JSON_PATH / "fascicolo_chunks.json",
+                               output_json: Path = JSON_PATH / "fascicolo_final_chunks.json",
+                               chunk_size: int = CHUNK_SIZE,
+                               chunk_overlap: int = CHUNK_OVERLAP):
+    """
+    Splits section chunks into page-level chunks and saves final JSON.
+    """
+    if not input_json.exists():
+        raise FileNotFoundError(f"Input JSON not found: {input_json}")
 
-json_path = pathlib.Path("../data/json/fascicolo_chunks.json")
+    with open(input_json, "r", encoding="utf-8") as f:
+        sections = json.load(f)
 
-splitter = MarkdownTextSplitter(chunk_size=2000, chunk_overlap=200)
+    splitter = MarkdownTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    all_chunks = []
+    chunk_id = 0
 
-all_chunks = []
-
-with open(json_path, 'r', encoding='utf-8') as f:
-    sections = json.load(f)
-    id = 0
-
-    for i, section_key in enumerate(sections.keys()):
-        section = sections[section_key]
+    for section_key, section in sections.items():
         text = section['text']
         metadata = section['metadata']
+        fascicolo = metadata.get("fascicolo", 1)
+        last_page = LAST_PAGES.get(fascicolo, 1)
 
-        page_pos = extract_page_positions(text)
-        # print(page_pos)
-        # print(len(text))
         chunks = splitter.split_text(text)
 
-        # last_page = starting_pages[metadata['fascicolo']]
-        last_page = last_pages[metadata['fascicolo']]
-
-        for j, chunk in enumerate(chunks):
+        for chunk in chunks:
             pages_re = extract_page_positions(chunk)
-
-            if pages_re == None:
-                # pages = [last_pages[metadata['fascicolo']]]
-                pages = f"{last_pages[metadata['fascicolo']]}"
+            if pages_re is None:
+                pages = f"{last_page}"
             else:
-                # pages = [pages_re, pages_re + 1]
                 pages = f"{pages_re}, {pages_re + 1}"
-                # last_page = pages_re + 1
-                last_pages[metadata['fascicolo']] = pages_re + 1
-            
+                last_page = pages_re + 1
+                LAST_PAGES[fascicolo] = last_page
 
             chunk_entry = {
-                "id": id,
+                "id": chunk_id,
                 "chunk_text": chunk,
                 "metadata": {
-                    "fascicolo": metadata.get("fascicolo"),
+                    "fascicolo": fascicolo,
                     "section_name": metadata.get("name", section_key),
                     "pages": pages,
                 }
             }
             all_chunks.append(chunk_entry)
-            id += 1
+            chunk_id += 1
 
-# Save all chunks to JSON
-output_path = pathlib.Path("../data/json/fascicolo_final_chunks.json")
-with open(output_path, "w", encoding="utf-8") as f:
-    json.dump(all_chunks, f, ensure_ascii=False, indent=2)
+    output_json.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_json, "w", encoding="utf-8") as f:
+        json.dump(all_chunks, f, ensure_ascii=False, indent=2)
 
-print(f"✅ Saved {len(all_chunks)} chunks to {output_path}")
+    print(f"✅ Saved {len(all_chunks)} page chunks to {output_json}")
+    return all_chunks
+
+if __name__ == "__main__":
+    chunk_sections_into_pages()
