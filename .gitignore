@@ -1,1 +1,5 @@
 taxcode/
+data/
+.gitignore
+.env
+db/

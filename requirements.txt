@@ -12,3 +12,5 @@ langchain
 pymupdf4llm
 llama-index
 tiktoken
+langchain-text-splitters
+markdown-to-json
