@@ -29,7 +29,7 @@ def chunk_all_sections():
 
         for i, section in enumerate(sections):
             section_data = section.model_dump()
-            header_name = section_data['metadata'].get('Header 2', f'Section {i}')
+            header_name = section_data['metadata'].get('Header 2')
             all_chunks[f'fascicolo{fascicolo}_section{i}'] = {
                 'text': section_data['page_content'],
                 'metadata': {
