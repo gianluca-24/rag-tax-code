@@ -8,6 +8,7 @@ jupyterlab
 langchain
 pymupdf4llm
 llama-index
+llama-parse
 tiktoken
 langchain-text-splitters
 markdown-to-json

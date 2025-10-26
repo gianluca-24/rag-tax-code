@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from .aux import semantic_search, answer_question
+from aux import semantic_search, answer_question
 
 app = FastAPI(title="Taxcode Semantic Search API")
 

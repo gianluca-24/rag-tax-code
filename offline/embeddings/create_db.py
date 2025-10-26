@@ -11,7 +11,7 @@ import sys
 
 # Ensure we can import config from parent folder
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from config import RAW_PATH, MD_PATH, JSON_PATH, DB_PATH, EMBED_MODEL
+from offline.config import RAW_PATH, MD_PATH, JSON_PATH, DB_PATH, EMBED_MODEL
 
 
 def get_embedding(text, client, model=EMBED_MODEL):

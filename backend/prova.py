@@ -12,7 +12,6 @@ client_ai = OpenAI(api_key=OPENAI_KEY)
 client_db = chromadb.PersistentClient(path="../data/db")
 collection = client_db.get_collection("db_taxcode")
 
-
 def get_query_embedding(text: str):
     text = text.replace("\n", " ")
     return client_ai.embeddings.create(
@@ -52,3 +51,14 @@ def answer_question(query: str, docs: list):
         messages=[{"role": "user", "content": prompt_text}]
     )
     return response.choices[0].message.content
+
+query = "Quali sono le principali novità introdotte nel quadro RW per l'anno 2024?"
+n_results = 5
+
+# Step 1: Retrieve relevant docs from the vector DB
+docs = semantic_search(query, 5)
+
+# Step 2: Generate LLM answer based on retrieved docs
+answer = answer_question(query, docs)
+
+print('Answer:\n', answer)

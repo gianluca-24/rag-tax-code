@@ -18,3 +18,5 @@ PAGE_RANGES = {
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
+
+BASE_URL = '"api.cloud.eu.llamaindex.ai'
