@@ -5,6 +5,7 @@ import json
 import chromadb
 from openai import OpenAI
 from tqdm import tqdm
+from chromadb.utils.batch_utils import create_batches
 from pathlib import Path
 import sys
 
@@ -63,13 +64,13 @@ def create_chroma_db():
         metadatas.append(metadata)
         embeddings.append(embedding)
 
-    # Add all chunks to persistent Chroma collection
-    collection.add(
-        ids=ids,
-        embeddings=embeddings,
-        documents=documents,
-        metadatas=metadatas
-    )
+    batches = create_batches(api=chroma_client,ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas)
+    for batch in tqdm(batches):
+        print(f"Adding batch of size {len(batch[0])} to collection...")
+        collection.add(ids=batch[0],
+                    documents=batch[3],
+                    embeddings=batch[1],
+                    metadatas=batch[2])
 
     print(f"✅ Added {len(ids)} chunks to persistent collection '{collection_name}'")
     print("📦 Data stored in:", DB_PATH.resolve())
