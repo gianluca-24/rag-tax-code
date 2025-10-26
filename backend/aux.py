@@ -2,7 +2,7 @@ import os
 import chromadb
 from dotenv import load_dotenv
 from openai import OpenAI
-from config import EMBED_MODEL, CHAT_MODEL
+from config import EMBED_MODEL, CHAT_MODEL, N_RESULTS
 
 load_dotenv()
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
@@ -25,7 +25,7 @@ def semantic_search(query: str, n_results: int = 3):
     query_emb = get_query_embedding(query)
     results = collection.query(
         query_embeddings=[query_emb],
-        n_results=n_results
+        n_results=N_RESULTS
     )
     docs = []
     for doc, meta, score in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
