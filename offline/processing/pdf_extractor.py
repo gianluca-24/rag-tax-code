@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 # --- Add parent folder to sys.path to import config ---
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import RAW_PATH, MD_PATH, PAGE_RANGES
 
 def extract_all_pdfs():

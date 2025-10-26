@@ -4,7 +4,7 @@ import sys
 
 # Add parent folder to sys.path to import config
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from offline.config import MD_PATH
+from config import MD_PATH
 
 def process_all_markdown():
     """Cleans and formats all Markdown files in MD_PATH."""
