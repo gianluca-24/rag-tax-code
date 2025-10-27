@@ -13,6 +13,7 @@ client_ai = OpenAI(api_key=OPENAI_KEY)
 client_db = chromadb.PersistentClient(path="../data/db")
 collection = client_db.get_collection("db_taxcode")
 
+# Get embedding for the query
 def get_query_embedding(text: str):
     text = text.replace("\n", " ")
     return client_ai.embeddings.create(
@@ -20,6 +21,7 @@ def get_query_embedding(text: str):
         model=EMBED_MODEL
     ).data[0].embedding
 
+# Semantic search in the vector DB
 def semantic_search(query: str, n_results: int = 3):
     query_emb = get_query_embedding(query)
     results = collection.query(
@@ -35,22 +37,16 @@ def semantic_search(query: str, n_results: int = 3):
         })
     return docs
 
+# Generate chat messages with system role, few-shot examples, and user query
 def generate_chat_messages(query: str, docs: list, examples: list = None):
     messages = []
     #System role: set context + formatting expectations
     messages.append({
-        "role": "system",
+        "role": "developer",
         "content": (
             "Sei un esperto del sistema fiscale italiano. "
             "Usa SOLO i documenti forniti per rispondere alle domande. "
-            "Rispondi in formato JSON con la seguente struttura:\n\n"
-            "{\n"
-            '  "answer": "testo della risposta",\n'
-            '  "references": [\n'
-            '    {"document": n, "section": "...", "quadro": "...", "fascicolo": "..."}\n'
-            '  ]\n'
-            "}\n\n"
-            "Non includere testo fuori dal JSON."
+            "Cita sempre le fonti (sezione, quadro, fascicolo, pagina) per ogni informazione fornita. "
         )
     })
     #Few-shot examples (as assistant + user pairs)
@@ -68,12 +64,16 @@ def generate_chat_messages(query: str, docs: list, examples: list = None):
     #Add retrieved documents as context
     context_text = "Documenti rilevanti:\n\n"
     for i, doc in enumerate(docs):
-        context_text += f"Documento {i+1} (similarità {doc['similarity']:.4f}):\n{doc['text']}\n\n"
+        context_text += f"(similarità {doc['similarity']:.4f}):\n{doc['text']}\n metadati: {doc['metadata']}\n\n"
 
     #User question (final)
     messages.append({
+        "role": "developer",
+        "content": f"{context_text}\n"
+    })
+    messages.append({
         "role": "user",
-        "content": f"{context_text}\nDomanda: '{query}'\nRispondi solo in JSON valido. Usa i riferimenti ai documenti forniti."
+        "content": f"Domanda: '{query}' Usa i riferimenti ai documenti forniti."
     })
 
     return messages
@@ -82,49 +82,43 @@ def generate_chat_messages(query: str, docs: list, examples: list = None):
 examples = [
     {
         "question": "Quali sono gli obblighi di monitoraggio fiscale nel quadro RW?",
-        "answer": {
-            "answer": "I soggetti residenti devono indicare nel quadro RW gli investimenti e le attività estere di natura finanziaria detenute all'estero.",
-            "references": [
-                {"document": 1, "section": "Monitoraggio fiscale", "quadro": "RW", "fascicolo": "1"}
-            ]
-        }
+        "answer": "I soggetti residenti devono indicare nel quadro RW gli investimenti e le attività estere di natura finanziaria detenute all'estero. \n Fonti: Sezione Monitoraggio fiscale, Quadro: RW, Fascicolo: 1 , Pagina: 15 "
     },
     {
         "question": "Come si calcola l'IVAFE per i conti correnti esteri?",
-        "answer": {
-            "answer": "L'IVAFE è dovuta in misura proporzionale al valore medio di giacenza dei conti correnti esteri, applicando l'aliquota dello 0,2%.",
-            "references": [
-                {"document": 2, "section": "IVAFE", "quadro": "RW", "fascicolo": "2"}
-            ]
-        }
+        "answer": "L'IVAFE è dovuta in misura proporzionale al valore medio di giacenza dei conti correnti esteri, applicando l'aliquota dello 0,2%. \n Fonti:  Sezione: IVAFE, Quadro RW, fascicolo: 2, Pagina: 22 "
     }
 ]
 
-def answer_question(query: str, docs: list, examples: list = None):
+
+
+# create a new conversation
+conversation = client_ai.conversations.create()
+
+# Generate LLM answer based on retrieved docs
+def answer_question(query: str, docs: list, examples: list = None, conversation: str = conversation):
     prompt_text = generate_chat_messages(query, docs, examples)
 
-    response = client_ai.chat.completions.create(
+    response = client_ai.responses.create(
         model=CHAT_MODEL,
-        messages=prompt_text,
-        response_format={"type": "json_object"}
+        conversation= conversation.id,
+        input = prompt_text,
+        instructions = "Rispondi citando le fonti e non aggiungere suggerimenti o richieste extra."
     )
     print(response)
+    print("\n\n\n")
     # Extract JSON content safely
-    content = response.choices[0].message.content
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        print("Warning: response was not valid JSON. Raw output returned.")
-        return content
+    content = response.output_text
+    return content
 
 # Example usage
-query = "Quali sono le principali novità introdotte nel quadro RW per l'anno 2024?"
+query = "Come si dichiarano gli affitti brevi con cedulare secca?"
 n_results = 5
 
 # Step 1: Retrieve relevant docs from the vector DB
 docs = semantic_search(query, 5)
 
 # Step 2: Generate LLM answer based on retrieved docs
-answer = answer_question(query, docs, examples)
+answer = answer_question(query, docs, examples, conversation)
 
 print(json.dumps(answer, indent=2, ensure_ascii=False))
