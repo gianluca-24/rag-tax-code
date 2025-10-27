@@ -39,7 +39,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Portale Fiscale") as demo:
     with gr.Tab("📊 Calcolatore Crypto"):
         crypto_interface()
 
-demo.launch()
+demo.launch(share=True)
 
 
 
