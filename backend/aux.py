@@ -89,10 +89,11 @@ from collections import defaultdict
 
 def calculate_gain(transactions_df: pd.DataFrame) -> float:
     """
-    Compute total crypto capital gain using FIFO.
+    Compute crypto capital gains using FIFO, aggregated per year.
+    Returns a dict like: {2023: 152.4, 2024: -32.8, ...}
     """
-    total_gain = 0.0
-    holdings = defaultdict(list)  # currency -> list of lots (FIFO)
+    gain_by_year = defaultdict(float)
+    holdings = defaultdict(list)  # currency -> list of FIFO lots
 
     # Ensure chronological order
     transactions_df = transactions_df.sort_values("datetime_tz_CET")
@@ -103,6 +104,7 @@ def calculate_gain(transactions_df: pd.DataFrame) -> float:
         recv_amt, recv_cur = row["received_amount"], row["received_currency"]
         sent_val, recv_val = row["sent_value_EUR"], row["received_value_EUR"]
         fee_val = row["fee_value_EUR"]
+        year = pd.to_datetime(row["datetime_tz_CET"]).year  # Extract year
 
         # --- Handle acquisitions ---
         if t_type in ["Receive", "Buy", "Reward", "Payment"]:
@@ -110,9 +112,9 @@ def calculate_gain(transactions_df: pd.DataFrame) -> float:
                 unit_cost = recv_val / recv_amt if recv_amt > 0 else 0
                 holdings[recv_cur].append({"amount": recv_amt, "unit_cost": unit_cost})
 
-        # --- Handle trades (buy one crypto, sell another) ---
+        # --- Handle trades ---
         elif t_type == "Trade":
-            # Disposal of sent_cur
+            # Disposal side
             if sent_amt and sent_cur:
                 remaining = sent_amt
                 cost_basis = 0.0
@@ -130,9 +132,9 @@ def calculate_gain(transactions_df: pd.DataFrame) -> float:
                         remaining = 0
 
                 gain = recv_val - cost_basis - fee_val
-                total_gain += gain
+                gain_by_year[year] += gain
 
-            # Acquisition of recv_cur
+            # Acquisition side
             if recv_amt and recv_cur:
                 unit_cost = recv_val / recv_amt if recv_amt > 0 else 0
                 holdings[recv_cur].append({"amount": recv_amt, "unit_cost": unit_cost})
@@ -156,6 +158,7 @@ def calculate_gain(transactions_df: pd.DataFrame) -> float:
                         remaining = 0
 
                 gain = sent_val - cost_basis - fee_val
-                total_gain += gain
+                gain_by_year[year] += gain
 
-    return round(total_gain, 2)
+    # Round all yearly totals
+    return {yr: round(val, 2) for yr, val in gain_by_year.items()}

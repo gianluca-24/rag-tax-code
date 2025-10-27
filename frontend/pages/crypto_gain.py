@@ -11,12 +11,24 @@ def process_crypto_file(zip_file):
         return "❌ Nessun file caricato."
 
     try:
-        # Send file to FastAPI backend
         files = {"transactions": (zip_file.name, open(zip_file.name, "rb"), "application/zip")}
         response = requests.post(BACKEND_URL + '/calculate_gain', files=files)
         response.raise_for_status()
         data = response.json()
-        string = f"{data.get('message')}\n\nTotale transazioni processate: {data.get('total_transactions')}\nProfitto calcolato: {data.get('profit')}"
+
+        # Extract and format yearly profits
+        profit_data = data.get('profit', {})
+        if isinstance(profit_data, dict):
+            profit_lines = "\n".join([f"  • {year}: €{amount:.2f}" for year, amount in profit_data.items()])
+        else:
+            profit_lines = str(profit_data)
+
+        # Build output string
+        string = (
+            f"{data.get('message')}\n\n"
+            f"Totale transazioni processate: {data.get('total_transactions')}\n"
+            f"Profitti per anno:\n{profit_lines}"
+        )
         return string
 
     except requests.exceptions.RequestException as e:

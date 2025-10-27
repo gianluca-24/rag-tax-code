@@ -36,10 +36,6 @@ async def calculate_crypto_gain(transactions: UploadFile = File(...)):
 
     try:
         full_df = process_zip_transactions(transactions.file)
-
-        # Here you would implement the gain calculation logic.
-        # For demonstration, we return the number of transactions processed.
-        # profit = 100000000 # COMPUTE THE ACTUAL PROFIT HERE
         profit = calculate_gain(full_df)
 
         return {
