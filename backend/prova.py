@@ -53,17 +53,17 @@ def generate_chat_messages(query: str, docs: list, examples: list = None):
             "Non includere testo fuori dal JSON."
         )
     })
-    # #Few-shot examples (as assistant + user pairs)
-    # if examples:
-    #     for ex in examples:
-    #         messages.append({
-    #             "role": "user",
-    #             "content": f"Domanda: {ex['question']}"
-    #         })
-    #         messages.append({
-    #             "role": "assistant",
-    #             "content": json.dumps(ex["answer"], ensure_ascii=False, indent=2)
-    #         })
+    #Few-shot examples (as assistant + user pairs)
+    if examples:
+        for ex in examples:
+            messages.append({
+                "role": "user",
+                "content": f"Domanda: {ex['question']}"
+            })
+            messages.append({
+                "role": "assistant",
+                "content": json.dumps(ex["answer"], ensure_ascii=False, indent=2)
+            })
 
     #Add retrieved documents as context
     context_text = "Documenti rilevanti:\n\n"
