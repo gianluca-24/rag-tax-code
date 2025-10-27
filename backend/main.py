@@ -1,15 +1,14 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from io import TextIOWrapper
-import zipfile
-import pandas as pd
 from pydantic import BaseModel
 from aux import semantic_search, answer_question, process_zip_transactions, calculate_gain
+from config_backend import EMBED_MODEL, CHAT_MODEL, N_RESULTS
+
 
 app = FastAPI(title="Taxcode Semantic Search API")
 
 class QueryRequest(BaseModel):
     query: str
-    n_results: int = 5
+    n_results: int = N_RESULTS
 
 @app.post("/query")
 def search_documents(request: QueryRequest):

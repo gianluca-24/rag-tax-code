@@ -116,7 +116,7 @@ query = "Come si dichiarano gli affitti brevi con cedulare secca?"
 n_results = 5
 
 # Step 1: Retrieve relevant docs from the vector DB
-docs = semantic_search(query, 5)
+docs = semantic_search(query, n_results)
 
 # Step 2: Generate LLM answer based on retrieved docs
 answer = answer_question(query, docs, examples, conversation)

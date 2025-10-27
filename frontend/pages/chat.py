@@ -31,6 +31,7 @@ def chat_interface():
             query_input = gr.Textbox(label="Domanda", placeholder="Es. Come si compila il quadro RA del fascicolo 1?")
             submit_button = gr.Button("Invia", variant="primary")
             submit_button.click(fn=get_answer, inputs=query_input, outputs=chatbot)
+            query_input.submit(fn=get_answer, inputs=query_input, outputs=chatbot)
 
         with gr.Column(scale=1):
             gr.Markdown("### 📂 Scarica i Fascicoli")
