@@ -20,18 +20,10 @@ class QueryRequest(BaseModel):
     n_results: int = N_RESULTS
 
 @app.post("/query")
-def search_documents(request: QueryRequest, session_id: str = Header(...)):
-    # Step 0: get or create conversation for this session
-    if session_id not in conversations:
-        conversations[session_id] = client_ai.conversations.create()
-    conversation = conversations[session_id]
-
-    # Step 1: Retrieve relevant docs from the vector DB
+def search_documents(request: QueryRequest, x_session_id: str = Header(...)):
+    # x_session_id now contains the session ID
     docs = semantic_search(request.query, request.n_results)
-
-    # Step 2: Generate LLM answer based on retrieved docs
-    answer = answer_question(request.query, docs, conversation=conversation)
-
+    answer = answer_question(request.query, docs, session_id=x_session_id)
     return {
         "query": request.query,
         "retrieved_documents": docs,

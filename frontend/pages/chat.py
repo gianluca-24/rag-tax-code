@@ -7,7 +7,7 @@ chat_history = []
 def get_answer(user_message, session_id):
     global chat_history
     payload = {"query": user_message, "n_results": N_RESULTS}
-    headers = {"session_id": session_id}
+    headers = {"X-Session-ID": session_id}
     try:
         response = requests.post(BACKEND_URL + '/query', json=payload, headers=headers)
         response.raise_for_status()

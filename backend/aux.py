@@ -13,7 +13,7 @@ load_dotenv()
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 client_ai = OpenAI(api_key=OPENAI_KEY)
 # create a new conversation
-conversation = client_ai.conversations.create()
+sessions = {}
 
 # Open persistent Chroma DB
 client_db = chromadb.PersistentClient(path="../data/db")
@@ -97,22 +97,20 @@ def generate_chat_messages(query: str, docs: list, examples: list = None):
     return messages
 
 
-def answer_question(query: str, docs: list, examples: list = None, conversation=None):
-    if conversation is None:
-        # fallback: create a temporary conversation
-        conversation = client_ai.conversations.create()
-
+def answer_question(query, docs, examples=None, session_id=None):
+    if session_id not in sessions:
+        print("Creating new conversation for session:", session_id)
+        sessions[session_id] = client_ai.conversations.create()
+    conversation = sessions[session_id]
+    
     prompt_text = generate_chat_messages(query, docs, examples)
-
     response = client_ai.responses.create(
         model=CHAT_MODEL,
         conversation=conversation.id,
         input=prompt_text,
         instructions="Rispondi citando le fonti e non aggiungere suggerimenti o richieste extra."
     )
-
-    content = response.output_text
-    return content
+    return response.output_text
 
 def process_zip_transactions(zip_file) -> pd.DataFrame:
     """
