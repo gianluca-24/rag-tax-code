@@ -24,7 +24,7 @@ def get_query_embedding(text: str):
         model=EMBED_MODEL
     ).data[0].embedding
 
-
+    
 def semantic_search(query: str, n_results: int = 3):
     query_emb = get_query_embedding(query)
     results = collection.query(

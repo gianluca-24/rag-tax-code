@@ -53,17 +53,17 @@ def generate_chat_messages(query: str, docs: list, examples: list = None):
             "Non includere testo fuori dal JSON."
         )
     })
-    #Few-shot examples (as assistant + user pairs)
-    if examples:
-        for ex in examples:
-            messages.append({
-                "role": "user",
-                "content": f"Domanda: {ex['question']}"
-            })
-            messages.append({
-                "role": "assistant",
-                "content": json.dumps(ex["answer"], ensure_ascii=False, indent=2)
-            })
+    # #Few-shot examples (as assistant + user pairs)
+    # if examples:
+    #     for ex in examples:
+    #         messages.append({
+    #             "role": "user",
+    #             "content": f"Domanda: {ex['question']}"
+    #         })
+    #         messages.append({
+    #             "role": "assistant",
+    #             "content": json.dumps(ex["answer"], ensure_ascii=False, indent=2)
+    #         })
 
     #Add retrieved documents as context
     context_text = "Documenti rilevanti:\n\n"
@@ -118,11 +118,11 @@ def answer_question(query: str, docs: list, examples: list = None):
         return content
 
 # Example usage
-query = "Quali sono le principali novità introdotte nel quadro RW per l'anno 2024?"
-n_results = 5
+query = "Come compilare il quadro RW per investimenti esteri?"
+n_results = 10
 
 # Step 1: Retrieve relevant docs from the vector DB
-docs = semantic_search(query, 5)
+docs = semantic_search(query, n_results)
 
 # Step 2: Generate LLM answer based on retrieved docs
 answer = answer_question(query, docs, examples)

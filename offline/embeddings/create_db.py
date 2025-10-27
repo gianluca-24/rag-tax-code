@@ -11,7 +11,7 @@ import sys
 
 # Ensure we can import config from parent folder
 sys.path.append(str(Path(__file__).resolve().parent.parent))
-from offline.config import RAW_PATH, MD_PATH, JSON_PATH, DB_PATH, EMBED_MODEL
+from config import RAW_PATH, MD_PATH, JSON_PATH, DB_PATH, EMBED_MODEL
 
 
 def get_embedding(text, client, model=EMBED_MODEL):
@@ -42,7 +42,13 @@ def create_chroma_db():
 
     # Create or get your RAG collection
     collection_name = "db_taxcode"
-    collection = chroma_client.get_or_create_collection(name=collection_name)
+    collection = chroma_client.get_or_create_collection(
+                        name=collection_name,
+                        configuration={
+                            "hnsw": {
+                                "space": "cosine",
+                            }
+                        })
 
     # Load the chunks JSON
     chunks_file = JSON_PATH / "fascicolo_final_chunks.json"
