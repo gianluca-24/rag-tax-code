@@ -9,18 +9,26 @@ def home():
     with gr.Row():
         with gr.Column():
             gr.Markdown("### 🇮🇹 Sistema Fiscale Italiano")
-            go_chat = gr.Button("Apri Assistente Fiscale", variant="primary")
+            gr.Markdown(
+                """
+                L'**Assistente Fiscale** utilizza un modello linguistico per rispondere alle tue domande sul sistema fiscale italiano.
+                Puoi chiedere informazioni su compilazione dei moduli, detrazioni, imposte e normative fiscali aggiornate.
+                """
+            )
 
         with gr.Column():
             gr.Markdown("### 💰 Calcolatore Plusvalenze Crypto")
-            go_crypto = gr.Button("Apri Calcolatore", variant="secondary")
-
-    return go_chat, go_crypto
+            gr.Markdown(
+                """
+                Il **Calcolatore di Plusvalenze Crypto** consente di caricare un file `.zip` con le tue transazioni da Binance
+                e calcola automaticamente le plusvalenze annuali in base alla cronologia degli scambi, depositi e prelievi.
+                """
+            )
 
 # --- Create main app with tabs/pages ---
 with gr.Blocks(theme=gr.themes.Soft(), title="Portale Fiscale") as demo:
     with gr.Tab("🏠 Home"):
-        go_chat, go_crypto = home()
+        home()
 
     with gr.Tab("💬 Sistema Fiscale Italiano"):
         chat_interface()
