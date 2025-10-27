@@ -3,6 +3,7 @@ import chromadb
 from dotenv import load_dotenv
 from openai import OpenAI
 from config_backend import EMBED_MODEL, CHAT_MODEL, N_RESULTS
+import json
 
 load_dotenv()
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
@@ -19,7 +20,6 @@ def get_query_embedding(text: str):
         model=EMBED_MODEL
     ).data[0].embedding
 
-
 def semantic_search(query: str, n_results: int = 3):
     query_emb = get_query_embedding(query)
     results = collection.query(
@@ -35,23 +35,89 @@ def semantic_search(query: str, n_results: int = 3):
         })
     return docs
 
+def generate_chat_messages(query: str, docs: list, examples: list = None):
+    messages = []
+    #System role: set context + formatting expectations
+    messages.append({
+        "role": "system",
+        "content": (
+            "Sei un esperto del sistema fiscale italiano. "
+            "Usa SOLO i documenti forniti per rispondere alle domande. "
+            "Rispondi in formato JSON con la seguente struttura:\n\n"
+            "{\n"
+            '  "answer": "testo della risposta",\n'
+            '  "references": [\n'
+            '    {"document": n, "section": "...", "quadro": "...", "fascicolo": "..."}\n'
+            '  ]\n'
+            "}\n\n"
+            "Non includere testo fuori dal JSON."
+        )
+    })
+    #Few-shot examples (as assistant + user pairs)
+    if examples:
+        for ex in examples:
+            messages.append({
+                "role": "user",
+                "content": f"Domanda: {ex['question']}"
+            })
+            messages.append({
+                "role": "assistant",
+                "content": json.dumps(ex["answer"], ensure_ascii=False, indent=2)
+            })
 
-def generate_prompt(query: str, docs: list):
-    prompt = f"Sei un esperto del sistema fiscale italiano. In base ai seguenti documenti, genera una risposta:\n '{query}'\n\n"
+    #Add retrieved documents as context
+    context_text = "Documenti rilevanti:\n\n"
     for i, doc in enumerate(docs):
-        prompt += f"Documento {i+1} (Similarity: {doc['similarity']:.4f}):\n{doc['text']}\n\n"
-    prompt += "Fornisci una risposta citando la sezione, eventuale quadro di riferimento, ed il fascicolo. Non fornire altre informazioni o domande."
-    return prompt
+        context_text += f"Documento {i+1} (similarità {doc['similarity']:.4f}):\n{doc['text']}\n\n"
+
+    #User question (final)
+    messages.append({
+        "role": "user",
+        "content": f"{context_text}\nDomanda: '{query}'\nRispondi solo in JSON valido. Usa i riferimenti ai documenti forniti."
+    })
+
+    return messages
 
 
-def answer_question(query: str, docs: list):
-    prompt_text = generate_prompt(query, docs)
+examples = [
+    {
+        "question": "Quali sono gli obblighi di monitoraggio fiscale nel quadro RW?",
+        "answer": {
+            "answer": "I soggetti residenti devono indicare nel quadro RW gli investimenti e le attività estere di natura finanziaria detenute all'estero.",
+            "references": [
+                {"document": 1, "section": "Monitoraggio fiscale", "quadro": "RW", "fascicolo": "1"}
+            ]
+        }
+    },
+    {
+        "question": "Come si calcola l'IVAFE per i conti correnti esteri?",
+        "answer": {
+            "answer": "L'IVAFE è dovuta in misura proporzionale al valore medio di giacenza dei conti correnti esteri, applicando l'aliquota dello 0,2%.",
+            "references": [
+                {"document": 2, "section": "IVAFE", "quadro": "RW", "fascicolo": "2"}
+            ]
+        }
+    }
+]
+
+def answer_question(query: str, docs: list, examples: list = None):
+    prompt_text = generate_chat_messages(query, docs, examples)
+
     response = client_ai.chat.completions.create(
         model=CHAT_MODEL,
-        messages=[{"role": "user", "content": prompt_text}]
+        messages=prompt_text,
+        response_format={"type": "json_object"}
     )
-    return response.choices[0].message.content
+    print(response)
+    # Extract JSON content safely
+    content = response.choices[0].message.content
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        print("Warning: response was not valid JSON. Raw output returned.")
+        return content
 
+# Example usage
 query = "Quali sono le principali novità introdotte nel quadro RW per l'anno 2024?"
 n_results = 5
 
@@ -59,6 +125,6 @@ n_results = 5
 docs = semantic_search(query, 5)
 
 # Step 2: Generate LLM answer based on retrieved docs
-answer = answer_question(query, docs)
+answer = answer_question(query, docs, examples)
 
-print('Answer:\n', answer)
+print(json.dumps(answer, indent=2, ensure_ascii=False))
