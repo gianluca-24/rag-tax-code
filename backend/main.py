@@ -3,7 +3,7 @@ from io import TextIOWrapper
 import zipfile
 import pandas as pd
 from pydantic import BaseModel
-from aux import semantic_search, answer_question, process_zip_transactions
+from aux import semantic_search, answer_question, process_zip_transactions, calculate_gain
 
 app = FastAPI(title="Taxcode Semantic Search API")
 
@@ -39,8 +39,9 @@ async def calculate_crypto_gain(transactions: UploadFile = File(...)):
 
         # Here you would implement the gain calculation logic.
         # For demonstration, we return the number of transactions processed.
-        profit = 100000000 # COMPUTE THE ACTUAL PROFIT HERE
-        
+        # profit = 100000000 # COMPUTE THE ACTUAL PROFIT HERE
+        profit = calculate_gain(full_df)
+
         return {
             "message": "✅ File caricati e ordinati correttamente!",
             "total_transactions": len(full_df),
