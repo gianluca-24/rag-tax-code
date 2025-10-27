@@ -4,7 +4,7 @@ import sys
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 
 # Add parent folder to sys.path to import config
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import MD_PATH, JSON_PATH
 
 def chunk_all_sections():

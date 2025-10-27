@@ -5,7 +5,7 @@ from langchain_text_splitters import MarkdownTextSplitter
 import sys
 
 # Add parent folder to sys.path to import config
-sys.path.append(str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import JSON_PATH, CHUNK_SIZE, CHUNK_OVERLAP
 
 # Track last page numbers per fascicolo

@@ -1,7 +1,11 @@
+from io import TextIOWrapper
 import os
+import zipfile
 import chromadb
 from dotenv import load_dotenv
 from openai import OpenAI
+from fastapi import FastAPI, UploadFile, File, HTTPException
+import pandas as pd
 from config_backend import EMBED_MODEL, CHAT_MODEL, N_RESULTS
 
 load_dotenv()
@@ -52,3 +56,109 @@ def answer_question(query: str, docs: list):
         messages=[{"role": "user", "content": prompt_text}]
     )
     return response.choices[0].message.content
+
+
+
+def process_zip_transactions(zip_file) -> pd.DataFrame:
+    """
+    Reads all CSV/TXT files from a ZIP, concatenates them, fills NaNs, 
+    parses datetime, sorts, and returns a clean DataFrame.
+    """
+    all_dfs = []
+    with zipfile.ZipFile(zip_file, "r") as z:
+        for name in z.namelist():
+            if name.endswith(".csv") or name.endswith(".txt"):
+                with z.open(name) as f:
+                    df = pd.read_csv(TextIOWrapper(f, encoding="latin1"))
+                    all_dfs.append(df)
+
+    if not all_dfs:
+        raise ValueError("Nessun file CSV trovato nello zip.")
+
+    # Concatenate, clean, and sort
+    full_df = pd.concat(all_dfs, ignore_index=True)
+    full_df = full_df.fillna(0)
+    full_df['datetime_tz_CET'] = pd.to_datetime(full_df['datetime_tz_CET'], utc=True, errors='coerce')
+    full_df = full_df.dropna(subset=['datetime_tz_CET'])
+    full_df = full_df.sort_values('datetime_tz_CET').reset_index(drop=True)
+
+    return full_df
+
+import pandas as pd
+from collections import defaultdict
+
+def calculate_gain(transactions_df: pd.DataFrame) -> float:
+    """
+    Compute crypto capital gains using FIFO, aggregated per year.
+    Returns a dict like: {2023: 152.4, 2024: -32.8, ...}
+    """
+    gain_by_year = defaultdict(float)
+    holdings = defaultdict(list)  # currency -> list of FIFO lots
+
+    # Ensure chronological order
+    transactions_df = transactions_df.sort_values("datetime_tz_CET")
+
+    for _, row in transactions_df.iterrows():
+        t_type = row["type"]
+        sent_amt, sent_cur = row["sent_amount"], row["sent_currency"]
+        recv_amt, recv_cur = row["received_amount"], row["received_currency"]
+        sent_val, recv_val = row["sent_value_EUR"], row["received_value_EUR"]
+        fee_val = row["fee_value_EUR"]
+        year = pd.to_datetime(row["datetime_tz_CET"]).year  # Extract year
+
+        # --- Handle acquisitions ---
+        if t_type in ["Receive", "Buy", "Reward", "Payment"]:
+            if recv_amt and recv_cur:
+                unit_cost = recv_val / recv_amt if recv_amt > 0 else 0
+                holdings[recv_cur].append({"amount": recv_amt, "unit_cost": unit_cost})
+
+        # --- Handle trades ---
+        elif t_type == "Trade":
+            # Disposal side
+            if sent_amt and sent_cur:
+                remaining = sent_amt
+                cost_basis = 0.0
+                fifo = holdings[sent_cur]
+
+                while remaining > 0 and fifo:
+                    lot = fifo[0]
+                    if remaining >= lot["amount"]:
+                        cost_basis += lot["amount"] * lot["unit_cost"]
+                        remaining -= lot["amount"]
+                        fifo.pop(0)
+                    else:
+                        cost_basis += remaining * lot["unit_cost"]
+                        lot["amount"] -= remaining
+                        remaining = 0
+
+                gain = recv_val - cost_basis - fee_val
+                gain_by_year[year] += gain
+
+            # Acquisition side
+            if recv_amt and recv_cur:
+                unit_cost = recv_val / recv_amt if recv_amt > 0 else 0
+                holdings[recv_cur].append({"amount": recv_amt, "unit_cost": unit_cost})
+
+        # --- Handle sales (to fiat) ---
+        elif t_type == "Sell":
+            if sent_amt and sent_cur:
+                remaining = sent_amt
+                cost_basis = 0.0
+                fifo = holdings[sent_cur]
+
+                while remaining > 0 and fifo:
+                    lot = fifo[0]
+                    if remaining >= lot["amount"]:
+                        cost_basis += lot["amount"] * lot["unit_cost"]
+                        remaining -= lot["amount"]
+                        fifo.pop(0)
+                    else:
+                        cost_basis += remaining * lot["unit_cost"]
+                        lot["amount"] -= remaining
+                        remaining = 0
+
+                gain = sent_val - cost_basis - fee_val
+                gain_by_year[year] += gain
+
+    # Round all yearly totals
+    return {yr: round(val, 2) for yr, val in gain_by_year.items()}
