@@ -26,7 +26,7 @@ def semantic_search(query: str, n_results: int = 3):
     query_emb = get_query_embedding(query)
     results = collection.query(
         query_embeddings=[query_emb],
-        n_results=N_RESULTS
+        n_results=n_results
     )
     docs = []
     for doc, meta, score in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
@@ -105,8 +105,8 @@ def answer_question(query: str, docs: list, examples: list = None, conversation:
         input = prompt_text,
         instructions = "Rispondi citando le fonti e non aggiungere suggerimenti o richieste extra."
     )
-    print(response)
-    print("\n\n\n")
+    # print(response)
+    # print("\n\n\n")
     # Extract JSON content safely
     content = response.output_text
     return content

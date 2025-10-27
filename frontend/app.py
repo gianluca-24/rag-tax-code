@@ -1,6 +1,7 @@
 import gradio as gr
 from pages.chat import chat_interface
 from pages.crypto_gain import crypto_interface
+import uuid
 
 def home():
     gr.Markdown("# 💼 Benvenuto nel Portale Fiscale")
@@ -27,11 +28,12 @@ def home():
 
 # --- Create main app with tabs/pages ---
 with gr.Blocks(theme=gr.themes.Soft(), title="Portale Fiscale") as demo:
+    session_state = gr.State(str(uuid.uuid4()))
     with gr.Tab("🏠 Home"):
         home()
 
     with gr.Tab("💬 Sistema Fiscale Italiano"):
-        chat_interface()
+        chat_interface(session_state)
         
 
     with gr.Tab("📊 Calcolatore Crypto"):

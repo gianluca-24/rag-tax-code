@@ -1,4 +1,5 @@
 from io import TextIOWrapper
+import json
 import os
 import zipfile
 import chromadb
@@ -11,6 +12,8 @@ from config_backend import EMBED_MODEL, CHAT_MODEL, N_RESULTS
 load_dotenv()
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 client_ai = OpenAI(api_key=OPENAI_KEY)
+# create a new conversation
+conversation = client_ai.conversations.create()
 
 # Open persistent Chroma DB
 client_db = chromadb.PersistentClient(path="../data/db")
@@ -24,12 +27,12 @@ def get_query_embedding(text: str):
         model=EMBED_MODEL
     ).data[0].embedding
 
-    
+
 def semantic_search(query: str, n_results: int = 3):
     query_emb = get_query_embedding(query)
     results = collection.query(
         query_embeddings=[query_emb],
-        n_results=N_RESULTS
+        n_results=n_results
     )
     docs = []
     for doc, meta, score in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
@@ -41,23 +44,75 @@ def semantic_search(query: str, n_results: int = 3):
     return docs
 
 
-def generate_prompt(query: str, docs: list):
-    prompt = f"Sei un esperto del sistema fiscale italiano. In base ai seguenti documenti, genera una risposta:\n '{query}'\n\n"
+# def generate_prompt(query: str, docs: list):
+#     prompt = f"Sei un esperto del sistema fiscale italiano. In base ai seguenti documenti, genera una risposta:\n '{query}'\n\n"
+#     for i, doc in enumerate(docs):
+#         meta = doc['metadata']
+#         print(meta)
+
+#         prompt += f"{doc['metadata']} (Similarity: {doc['similarity']:.4f}):\n{doc['text']}\n\n"
+#     prompt += "Fornisci una risposta citando la sezione, eventuale quadro di riferimento, ed il fascicolo. Non fornire altre informazioni o domande."
+#     return prompt
+
+
+# Generate chat messages with system role, few-shot examples, and user query
+def generate_chat_messages(query: str, docs: list, examples: list = None):
+    messages = []
+    #System role: set context + formatting expectations
+    messages.append({
+        "role": "developer",
+        "content": (
+            "Sei un esperto del sistema fiscale italiano. "
+            "Usa SOLO i documenti forniti per rispondere alle domande. "
+            "Cita sempre le fonti (sezione, quadro, fascicolo, pagina) per ogni informazione fornita. "
+        )
+    })
+    #Few-shot examples (as assistant + user pairs)
+    if examples:
+        for ex in examples:
+            messages.append({
+                "role": "user",
+                "content": f"Domanda: {ex['question']}"
+            })
+            messages.append({
+                "role": "assistant",
+                "content": json.dumps(ex["answer"], ensure_ascii=False, indent=2)
+            })
+
+    #Add retrieved documents as context
+    context_text = "Documenti rilevanti:\n\n"
     for i, doc in enumerate(docs):
-        prompt += f"Documento {i+1} (Similarity: {doc['similarity']:.4f}):\n{doc['text']}\n\n"
-    prompt += "Fornisci una risposta citando la sezione, eventuale quadro di riferimento, ed il fascicolo. Non fornire altre informazioni o domande."
-    return prompt
+        context_text += f"(similarità {doc['similarity']:.4f}):\n{doc['text']}\n metadati: {doc['metadata']}\n\n"
+
+    #User question (final)
+    messages.append({
+        "role": "developer",
+        "content": f"{context_text}\n"
+    })
+    messages.append({
+        "role": "user",
+        "content": f"Domanda: '{query}' Usa i riferimenti ai documenti forniti."
+    })
+
+    return messages
 
 
-def answer_question(query: str, docs: list):
-    prompt_text = generate_prompt(query, docs)
-    response = client_ai.chat.completions.create(
+def answer_question(query: str, docs: list, examples: list = None, conversation=None):
+    if conversation is None:
+        # fallback: create a temporary conversation
+        conversation = client_ai.conversations.create()
+
+    prompt_text = generate_chat_messages(query, docs, examples)
+
+    response = client_ai.responses.create(
         model=CHAT_MODEL,
-        messages=[{"role": "user", "content": prompt_text}]
+        conversation=conversation.id,
+        input=prompt_text,
+        instructions="Rispondi citando le fonti e non aggiungere suggerimenti o richieste extra."
     )
-    return response.choices[0].message.content
 
-
+    content = response.output_text
+    return content
 
 def process_zip_transactions(zip_file) -> pd.DataFrame:
     """
